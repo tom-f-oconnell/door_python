@@ -20,14 +20,11 @@ from rpy2.robjects import pandas2ri
 from rpy2 import robjects as ro
 import pubchempy as pcp
 
+from drosolf import orns
 from drosolf import pns
 
+import ipdb
 
-pn_responses = pns.pns()
-# TODO is the index supposed to be 111 long? more?
-hallem_odors = set(pn_responses.index)
-
-# TODO how different are 1-OCT and 3-OCT? 3-OCT and MCH?
 
 # TODO how to check if r package is already installed?
 utils = rpackages.importr('utils')
@@ -36,9 +33,9 @@ utils.chooseCRANmirror(ind=1)
 if not rpackages.isinstalled('devtools'):
     # TODO way to install package as personal library + create one
     # by default? or run just this command as root?
-    print(dir(utils))
+    #print(dir(utils))
     utils.install_packages(StrVector(('devtools',)))
-    print(utils.installed_packages())
+    #print(utils.installed_packages())
 
 else:
     print('devtools installed!')
@@ -61,30 +58,83 @@ print(dir(door_functions))
 # the r workspace / inspect the workspace to see what it loaded?
 door_data.load_door_data()
 
+
+def name2inchikey(odor_names):
+    """
+    Args:
+        odor_names (iterable of strs): the odors to be translated to
+        inchikeys
+
+    Returns:
+        odor_inchikeys (list of strs): the inchikeys for the input odors
+        inchikey2name (dict: str -> str): for quickly getting the name for an
+        inchikey
+
+    """
+    # TODO support single str inputs too
+    odor_inchikeys = []
+    inchikey2name = dict()
+    for o in odor_names:
+        matches = pcp.get_compounds(o, 'name')
+
+        if len(matches) > 1:
+            print('WARNING: more than one pubchem match for {}. ' + \
+                'ambiguous!'.format(o))
+            continue
+
+        elif len(matches) == 0:
+            print('WARNING: no pubchem matches found for {}!'.format(o))
+            continue
+
+        match = matches[0]
+
+        odor_inchikeys.append(match.inchikey)
+        inchikey2name[match.inchikey] = o
+
+    return odor_inchikeys, inchikey2name
+
+def check_door_hallem06():
+    """
+    Checks consistency of DoOR Hallem (2006, at least) responses against
+    the ones I have in drosolf.
+
+    Args:
+    """
+    # TODO is there not a function to list datasets? i feel like there should be
+    orn_responses = orns.orns()
+    hallem_odors = set(orn_responses.index)
+    hallem_inchikeys = name2inchikey(hallem_odors)
+
+    # EN stands for "Empty Neuron". there are also 2004.EN and 2004.WT
+    r_hallem06_door = door_functions.get_dataset('Hallem.2006.EN')
+    hallem06_door = pandas2ri.ri2py(r_hallem06_door)
+    hallem06_door = hallem06_door.dropna()
+
+    ipdb.set_trace()
+
+
+check_door_hallem06()
+
+pn_responses = pns.pns()
+# TODO is the index supposed to be 111 long? more?
+hallem_odors = set(pn_responses.index)
+
+# TODO how different are 1-OCT and 3-OCT? 3-OCT and MCH?
+
 # TODO is there some way to check whether an odor is in the database by
 # name? i suppose it'd be better to normalize to some ID in python first
 # anyway?
 odor_names = ('4-methylcyclohexanol', '3-octanol')
-odors_inchikeys = []
-inchikey2name = dict()
-for o in odor_names:
-    possible_matches = pcp.get_compounds(o, 'name')
+odor_inchikeys, inchikey2name = name2inchikey(odor_names)
 
-    assert len(possible_matches) == 1, 'more than one pubchem match for ' +\
-        o + '. ambiguous!'
-    match = possible_matches[0]
-
-    odors_inchikeys.append(match.inchikey)
-    inchikey2name[match.inchikey] = o
-
-print(odors_inchikeys)
+print(odor_inchikeys)
 
 # TODO want dataframe w/ odor IDs (ultimately want names, but will probably
 # have to translate?) and responses (hopefully in same format as mine)
 # TODO so both of these seem to return something approximately what I
 # want... what is the difference?
-r_responses = door_functions.get_responses(StrVector(odors_inchikeys))
-#responses = door_functions.get_responses(odors_inchikeys)
+r_responses = door_functions.get_responses(StrVector(odor_inchikeys))
+#responses = door_functions.get_responses(odor_inchikeys)
 
 responses = pandas2ri.ri2py(r_responses)
 only_with_data = responses.dropna()
@@ -97,3 +147,4 @@ only_ors = only_with_data[only_with_data['ORs'].apply(lambda x: 'Or' in x \
 # hallem papers (in DoOR), but i am pretty sure neither is in the 2006...
 # what's up? error?
 only_ors['ORs'] = only_ors['ORs'].apply(lambda x: x[2:])
+
