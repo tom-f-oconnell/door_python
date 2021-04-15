@@ -53,12 +53,13 @@ door_data = importr('DoOR.data')
 door_functions = importr('DoOR.functions')
 print(dir(door_functions))
 
-# TODO what is the the nointeraction=TRUE bit for, in load_door_data(...)?
-# TODO way to load it to a dataframe? or otherwise how to get it out of
-# the r workspace / inspect the workspace to see what it loaded?
-door_data.load_door_data()
+# nointeraction=True supresses a warning about loading data into the global
+# workspace in R
+# TODO this python syntax translate to correct R syntax?
+door_data.load_door_data(nointeraction=True)
 
 
+# TODO TODO cache this function. maybe even setup network wide pubchem caching.
 def name2inchikey(odor_names):
     """
     Args:
@@ -103,10 +104,12 @@ def check_door_hallem06():
     # TODO is there not a function to list datasets? i feel like there should be
     orn_responses = orns.orns()
     hallem_odors = set(orn_responses.index)
+    #manual_name_fixes = {'E2-hexenal'
     hallem_inchikeys = name2inchikey(hallem_odors)
 
     # EN stands for "Empty Neuron". there are also 2004.EN and 2004.WT
     r_hallem06_door = door_functions.get_dataset('Hallem.2006.EN')
+    ipdb.set_trace()
     hallem06_door = pandas2ri.ri2py(r_hallem06_door)
     hallem06_door = hallem06_door.dropna()
 
